@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexşeya Dengên Kurdî</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .fade-in { animation: fadeIn 0.2s ease-in-out; }
+        .zoom-in { animation: zoomIn 0.2s ease-in-out; }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes zoomIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-50 p-2 md:p-6 select-none overflow-x-hidden flex flex-col items-center">
+    <div class="text-center mb-4">
+        <h1 class="text-3xl font-black text-slate-800">NEXŞEYA DENGÊN KURDÎ</h1>
+        <p class="text-slate-500 text-sm">Xalên fîzîkî yên jêderê dengên di nav dev de</p>
+    </div>
+    <div id="map-container" class="relative w-full max-w-4xl aspect-[1.6/1] bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden mx-auto">
+        <svg class="absolute inset-0 w-full h-full pointer-events-none opacity-80" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <path d="M0,55 Q5,55 10,50 T30,30 T60,20 T85,25 T95,70" fill="none" stroke="#334155" stroke-width="1.5" stroke-linecap="round" />
+            <path d="M5,70 Q15,70 25,65 T50,60 T80,70 T95,90" fill="none" stroke="#334155" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="5,5"/>
+            <text x="1" y="50" class="text-[3px] font-bold fill-slate-400">LÊV</text>
+            <text x="12" y="43" class="text-[3px] font-bold fill-slate-400">DIRAN</text>
+            <text x="27" y="17" class="text-[3px] font-bold fill-slate-400">GOŞTÊ DIRAN</text>
+            <text x="55" y="14" class="text-[3px] font-bold fill-slate-400">KAMA DEV</text>
+            <text x="80" y="20" class="text-[3px] font-bold fill-slate-400">ZIMANOK</text>
+            <text x="85" y="90" class="text-[3px] font-bold fill-slate-400">QIRIK</text>
+        </svg>
+        <div class="absolute inset-0 grid grid-cols-4 pointer-events-none opacity-5">
+            <div class="border-r border-slate-900"></div>
+            <div class="border-r border-slate-900"></div>
+            <div class="border-r border-slate-900"></div>
+        </div>
+        <div id="phoneme-layer"></div>
+
+        <div class="absolute bottom-2 left-4 right-4 h-1 bg-gradient-to-r from-slate-300 via-slate-200 to-slate-300 rounded-full"></div>
+        <div class="absolute bottom-4 left-4 text-xs font-bold text-slate-400">← DERVEYÊ DEV</div>
+        <div class="absolute bottom-4 right-4 text-xs font-bold text-slate-400">HUNDIRÊ QIRIKÊ →</div>
+    </div>
+
+    <div class="mt-6 flex flex-wrap justify-center gap-4" id="legend-container">
+    </div>
+
+    <!-- MODAL -->
+    <div id="modal-overlay" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm hidden fade-in">
+        <div id="modal-content" class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden zoom-in" onclick="event.stopPropagation()">
+            
+            <!-- Header -->
+            <div id="modal-header" class="p-6 text-white relative transition-colors duration-300">
+                <button onclick="closeModal()" class="absolute top-4 right-4 hover:bg-white/20 rounded-full p-1 transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+                <div class="flex items-end justify-between">
+                    <span id="modal-char" class="text-6xl font-black"></span>
+                    <div class="text-right">
+                        <span id="modal-voice" class="block text-xl font-medium opacity-90"></span>
+                        <span id="modal-group" class="text-xs font-bold uppercase tracking-wide opacity-75"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Body -->
+            <div class="p-6">
+                <div class="flex items-start gap-3 mb-6">
+                    <i data-lucide="info" class="text-slate-400 mt-1 flex-shrink-0 w-5 h-5"></i>
+                    <p id="modal-desc" class="text-lg text-slate-700 leading-relaxed"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DATA ---
+        const phonemes = [
+            { char: 'P', type: 'plosive', groupName: 'Teqîner', desc: 'Bêdeng, Du lêv.', x: 5, y: 55, voice: 'bêdeng' },
+            { char: 'B', type: 'plosive', groupName: 'Teqîner', desc: 'Dengdêr, Du lêv.', x: 5, y: 65, voice: 'dengdêr' },
+            { char: 'T', type: 'plosive', groupName: 'Teqîner', desc: 'Bêdeng, Goştê diran.', x: 30, y: 32, voice: 'bêdeng' },
+            { char: 'D', type: 'plosive', groupName: 'Teqîner', desc: 'Dengdêr, Goştê diran.', x: 30, y: 45, voice: 'dengdêr' },
+            { char: 'C', type: 'plosive', groupName: 'Teqîner', desc: 'Bêdeng, Kama Dev.', x: 55, y: 20, voice: 'bêdeng' },
+            { char: 'K', type: 'plosive', groupName: 'Teqîner', desc: 'Bêdeng, Kama Dev.', x: 70, y: 25, voice: 'bêdeng' },
+            { char: 'G', type: 'plosive', groupName: 'Teqîner', desc: 'Dengdêr, Kama Dev.', x: 70, y: 38, voice: 'dengdêr' },
+            { char: 'Q', type: 'plosive', groupName: 'Teqîner', desc: 'Bêdeng, Zimanok (Pir sert).', x: 90, y: 45, voice: 'bêdeng' },
+            { char: 'F', type: 'fricative', groupName: 'Hûrik', desc: 'Bêdeng, Diran-Lêv.', x: 15, y: 50, voice: 'bêdeng' },
+            { char: 'V', type: 'fricative', groupName: 'Hûrik', desc: 'Dengdêr, Diran-Lêv.', x: 15, y: 62, voice: 'dengdêr' },
+            { char: 'S', type: 'fricative', groupName: 'Hûrik', desc: 'Bêdeng, Goştê diran (Bi fîkînî).', x: 36, y: 32, voice: 'bêdeng' },
+            { char: 'Z', type: 'fricative', groupName: 'Hûrik', desc: 'Dengdêr, Goştê diran.', x: 36, y: 45, voice: 'dengdêr' },
+            { char: 'Ş', type: 'fricative', groupName: 'Hûrik', desc: 'Bêdeng, Pişta goştê diran.', x: 45, y: 28, voice: 'bêdeng' },
+            { char: 'J', type: 'fricative', groupName: 'Hûrik', desc: 'Dengdêr, Pişta goştê diran.', x: 45, y: 40, voice: 'dengdêr' },
+            { char: 'X', type: 'fricative', groupName: 'Hûrik', desc: 'Bêdeng, Ser qirikê (Xirînî).', x: 92, y: 65, voice: 'bêdeng' },
+            { char: 'H', type: 'fricative', groupName: 'Hûrik', desc: 'Dengdêr, Qirik (Ji kûr).', x: 90, y: 80, voice: 'dengdêr' },
+            { char: 'M', type: 'nasal', groupName: 'Pozî', desc: 'Dengdêr, Lêv.', x: 7, y: 40, voice: 'dengdêr' },
+            { char: 'N', type: 'nasal', groupName: 'Pozî', desc: 'Dengdêr, Goştê diran.', x: 29, y: 22, voice: 'dengdêr' },
+            { char: 'W', type: 'approximant', groupName: 'Herikbar', desc: 'Dengdêr, Lêv+Kama dev.', x: 7, y: 75, voice: 'dengdêr' },
+            { char: 'R', type: 'approximant', groupName: 'Herikbar', desc: 'Dengdêr, Lerzok.', x: 41, y: 51, voice: 'dengdêr' },
+            { char: 'L', type: 'approximant', groupName: 'Herikbar', desc: 'Dengdêr, Herikbar.', x: 35, y: 55, voice: 'dengdêr' },
+            { char: 'Y', type: 'approximant', groupName: 'Herikbar', desc: 'Dengdêr, Kama dev.', x: 58, y: 35, voice: 'dengdêr' },
+        ];
+
+        const styleConfig = {
+            plosive: { bg: 'bg-red-500', border: 'border-red-700', shadow: 'shadow-red-500/50', label: 'Teqîner', labelEn: 'Plosives' },
+            fricative: { bg: 'bg-blue-500', border: 'border-blue-700', shadow: 'shadow-blue-500/50', label: 'Hûrik', labelEn: 'Fricatives' },
+            nasal: { bg: 'bg-green-500', border: 'border-green-700', shadow: 'shadow-green-500/50', label: 'Pozî', labelEn: 'Nasals' },
+            approximant: { bg: 'bg-yellow-400', border: 'border-yellow-600', shadow: 'shadow-yellow-400/50', label: 'Herikbar', labelEn: 'Approximants' },
+        };
+
+        let currentActivePhoneme = null;
+
+        // --- INITIALIZATION ---
+        function initMap() {
+            const layer = document.getElementById('phoneme-layer');
+            const legend = document.getElementById('legend-container');
+            
+            // Render Phonemes
+            phonemes.forEach(p => {
+                const style = styleConfig[p.type];
+                const isVoiced = p.voice === 'dengdêr';
+                
+                const btn = document.createElement('button');
+                btn.className = `absolute transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 md:w-12 md:h-12 flex items-center justify-center rounded-full border-2 md:border-4 transition-all duration-300 hover:scale-125 hover:z-50 shadow-lg ${isVoiced ? `${style.bg} text-white ${style.border}` : `bg-white ${style.border} text-slate-800`}`;
+                btn.style.left = `${p.x}%`;
+                btn.style.top = `${p.y}%`;
+                
+                // Glow effect span
+                const glow = document.createElement('span');
+                glow.className = `absolute inset-0 rounded-full ${style.bg} opacity-0 hover:opacity-30 blur-md transition-opacity`;
+                btn.appendChild(glow);
+
+                // Text span
+                const text = document.createElement('span');
+                text.className = "font-bold text-sm md:text-xl relative z-10";
+                text.textContent = p.char;
+                btn.appendChild(text);
+
+                btn.onclick = () => openModal(p);
+                layer.appendChild(btn);
+            });
+
+            // Render Legend
+            Object.entries(styleConfig).forEach(([key, conf]) => {
+                const div = document.createElement('div');
+                div.className = "flex items-center gap-3 bg-white px-3 py-2 rounded-lg shadow-sm border border-slate-100";
+                div.innerHTML = `
+                    <div class="w-4 h-4 rounded-full ${conf.bg} flex-shrink-0"></div>
+                    <div class="flex flex-col">
+                        <span class="text-sm font-medium text-slate-700 leading-tight">${conf.label}</span>
+                        <span class="text-xs text-slate-600 font-normal">${conf.labelEn}</span>
+                    </div>
+                `;
+                legend.appendChild(div);
+            });
+            // Legend Extras
+            legend.innerHTML += `
+                <div class="w-px h-8 bg-slate-300 mx-2 hidden md:block"></div>
+                
+                <div class="flex items-center gap-3 bg-white px-3 py-2 rounded-lg shadow-sm border border-slate-100">
+                    <div class="w-4 h-4 rounded-full border-2 border-slate-400 bg-white flex-shrink-0"></div>
+                    <div class="flex flex-col">
+                        <span class="text-sm font-medium text-slate-700 leading-tight">Bêdeng</span>
+                        <span class="text-xs text-slate-600 font-normal">Voiceless</span>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3 bg-white px-3 py-2 rounded-lg shadow-sm border border-slate-100">
+                    <div class="w-4 h-4 rounded-full bg-slate-600 flex-shrink-0"></div>
+                    <div class="flex flex-col">
+                        <span class="text-sm font-medium text-slate-700 leading-tight">Dengdêr</span>
+                        <span class="text-xs text-slate-600 font-normal">Voiced</span>
+                    </div>
+                </div>
+            `;
+
+            lucide.createIcons();
+        }
+
+        // --- MODAL LOGIC ---
+        function openModal(phoneme) {
+            currentActivePhoneme = phoneme;
+            const style = styleConfig[phoneme.type];
+            
+            // Update UI Elements
+            const header = document.getElementById('modal-header');
+            
+            // Remove old color classes and add new one
+            header.className = `p-6 text-white relative transition-colors duration-300 ${style.bg}`;
+            
+            document.getElementById('modal-char').textContent = phoneme.char;
+            document.getElementById('modal-voice').textContent = phoneme.voice === 'dengdêr' ? 'Dengdêr' : 'Bêdeng';
+            document.getElementById('modal-group').textContent = phoneme.groupName;
+            document.getElementById('modal-desc').textContent = phoneme.desc;
+
+
+            // Show Modal
+            document.getElementById('modal-overlay').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('modal-overlay').classList.add('hidden');
+            currentActivePhoneme = null;
+        }
+
+        // Close on overlay click
+        document.getElementById('modal-overlay').addEventListener('click', (e) => {
+            if (e.target.id === 'modal-overlay') closeModal();
+        });
+        // Initialize on load
+        window.onload = initMap;
+    </script>
+</body>
+</html>
